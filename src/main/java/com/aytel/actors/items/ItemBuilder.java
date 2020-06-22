@@ -15,7 +15,7 @@ public class ItemBuilder {
     };
 
     private static final int MAX_ATTACK = 3;
-    private static final int MAX_ARMOR = 1;
+    private static final int MAX_ARMOR = 2;
     private static final int MAX_CONFUSION = 4;
 
     static final Random random = new Random();

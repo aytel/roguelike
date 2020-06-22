@@ -15,6 +15,7 @@ import java.util.*;
 
 import static com.aytel.actors.Move.*;
 import static java.lang.Math.abs;
+import static java.lang.Math.max;
 
 public class World {
     private static final int PLAYER_HP = 10;
@@ -89,6 +90,7 @@ public class World {
         Scanner scanner = new Scanner(file);
         int w = scanner.nextInt();
         int h = scanner.nextInt();
+        scanner.nextLine();
         Tile[][] map = new Tile[h][w];
         boolean[][] itemsPlaces = new boolean[h][w];
         boolean[][] mobsPlaces = new boolean[h][w];
@@ -260,7 +262,7 @@ public class World {
     private void win() throws IOException {
         render(null);
         textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
-        textGraphics.putString(1, h + 1, "YOU WON. Press any key to exit.");
+        textGraphics.putString(1, max(h + 1, 5 + me.getItems().size() + 1), "YOU WON. Press any key to exit.");
         terminal.flush();
         terminal.readInput();
         terminal.close();
@@ -269,7 +271,7 @@ public class World {
     private void lose() throws IOException {
         render(null);
         textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
-        textGraphics.putString(1, h + 1, "YOU LOST. Press any key to exit.");
+        textGraphics.putString(1, max(h + 1, 5 + me.getItems().size() + 1), "YOU LOST. Press any key to exit.");
         terminal.flush();
         terminal.readInput();
         terminal.close();
