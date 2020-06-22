@@ -5,12 +5,13 @@ import com.aytel.WorldObject;
 
 import java.io.IOException;
 
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 public abstract class Actor extends WorldObject {
-    private int hp;
-    private int attack;
-    private int armor;
+    protected int hp;
+    protected int attack;
+    protected int armor;
     private Position position;
     protected final World world;
 
@@ -36,7 +37,6 @@ public abstract class Actor extends WorldObject {
         return hp;
     }
 
-
     public void setArmor(int armor) {
         this.armor = armor;
     }
@@ -59,11 +59,12 @@ public abstract class Actor extends WorldObject {
     }
 
     public void performAttack(Actor a) {
-        int damage = attack;
-        int damageToArmor = min(damage, a.armor);
-        a.armor -= damageToArmor;
-        a.hp -= damage - damageToArmor;
+        a.hp -= max(0, getAttack() - a.getArmor());
     }
 
     abstract public void act() throws IOException;
+
+    public void beforeRender() {
+
+    }
 }

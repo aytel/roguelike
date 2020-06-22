@@ -1,11 +1,12 @@
 package com.aytel;
 
 import com.aytel.actors.*;
+import com.aytel.actors.items.Item;
+import com.aytel.actors.items.ItemBuilder;
 import com.aytel.actors.strategies.Aggressive;
 import com.aytel.actors.strategies.Dumb;
 import com.aytel.actors.strategies.Sneaky;
 import com.aytel.actors.strategies.Strategy;
-import com.googlecode.lanterna.SGR;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.TextGraphics;
 import com.googlecode.lanterna.input.KeyStroke;
@@ -24,6 +25,7 @@ public class World {
     private int w, h;
     private Tile[][] map;
     private List<Actor> actors;
+    private Item[][] items;
     Player me;
 
     private DefaultTerminalFactory defaultTerminalFactory;
@@ -36,6 +38,7 @@ public class World {
     private static final int MOB_ATTACK = 1;
     private static final int WALL_CHANCE = 8;
     private static final int MOB_CHANCE = 15;
+    private static final int ITEM_CHANCE = 15;
 
     private World(int w, int h, Tile[][] map) throws IOException {
         this.w = w;
@@ -75,6 +78,22 @@ public class World {
 
         World world = new World(w, h, map);
 
+        world.items = new Item[w][h];
+
+        for (int i = 1; i < h - 1; i++) {
+            for (int j = 1; j < w - 1; j++) {
+                if (map[i][j] != Tile.EMPTY) {
+                    continue;
+                }
+
+                int checkItem = random.nextInt(ITEM_CHANCE);
+                if (checkItem == 0) {
+                    Item item = ItemBuilder.generate();
+                    world.items[i][j] = item;
+                }
+            }
+        }
+
         for (int i = 1; i < h - 1; i++) {
             for (int j = 1; j < w - 1; j++) {
                 if (map[i][j] != Tile.EMPTY) {
@@ -90,7 +109,7 @@ public class World {
 
                     Strategy strategy = null;
 
-                    int strategySwitch = abs(random.nextInt() % 3);
+                    int strategySwitch = random.nextInt(3);
 
                     switch (strategySwitch) {
                         case 0:
@@ -138,6 +157,7 @@ public class World {
                 if (actor.getHp() <= 0) {
                     continue;
                 }
+                actor.beforeRender();
                 render(actor);
                 actor.act();
             }
@@ -159,7 +179,6 @@ public class World {
     }
 
     private void render(Actor toTurn) throws IOException {
-        //terminal.clearScreen();
         textGraphics.fill(' ');
         textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
         for (int i = 0; i < h; i++) {
@@ -168,8 +187,15 @@ public class World {
             }
         }
 
-        textGraphics.putString(w + 1, 0, "HP: " + me.getHp() + " + " + me.getArmor());
-        textGraphics.putString(w + 1, 1, "ATK: " + me.getAttack());
+        for (int i = 0; i < h; i++) {
+            for (int j = 0; j < w; j++) {
+                if (items[i][j] != null) {
+                    items[i][j].draw(textGraphics, this, toTurn, j, i, null);
+                }
+            }
+        }
+
+        renderMyInfo();
 
         for (Actor actor: actors) {
             actor.draw(textGraphics, this, toTurn, actor.getPosition().x, actor.getPosition().y, null);
@@ -178,8 +204,29 @@ public class World {
         terminal.flush();
     }
 
+    public void renderMyInfo() {
+        textGraphics.setForegroundColor(TextColor.ANSI.WHITE);
+
+        textGraphics.putString(w + 1, 0, "HP: " + me.getHp());
+        textGraphics.putString(w + 1, 1, "ARM: " + me.getArmor());
+        textGraphics.putString(w + 1, 2, "ATK: " + me.getAttack());
+        textGraphics.putString(w + 1, 3, "CONF: " + me.getConfusion());
+
+        for (int i = 0; i < me.getItems().size(); i++) {
+            textGraphics.putString(w + 1, 5 + i, "  " + (i + 1) + ". " + me.getItems().get(i).name);
+        }
+
+        if (me.curItem != -1) {
+            textGraphics.putString(w + 1, 5 + me.curItem, "*");
+        }
+    }
+
     public List<Actor> getActors() {
         return actors;
+    }
+
+    public Item[][] getItems() {
+        return items;
     }
 
     public Player getMe() {
@@ -255,6 +302,14 @@ public class World {
 
     public KeyStroke getInput() throws IOException {
         return terminal.readInput();
+    }
+
+    public void flush() {
+        try {
+            terminal.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public enum Tile {
