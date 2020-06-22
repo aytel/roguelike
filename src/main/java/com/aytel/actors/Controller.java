@@ -13,16 +13,16 @@ public class Controller {
                 case Enter:
                     return;
                 case ArrowUp:
-                    world.tryMove(me, -1, 0);
+                    world.tryMove(me, Move.UP);
                     return;
                 case ArrowDown:
-                    world.tryMove(me, 1, 0);
+                    world.tryMove(me, Move.DOWN);
                     return;
                 case ArrowLeft:
-                    world.tryMove(me, 0, -1);
+                    world.tryMove(me, Move.LEFT);
                     return;
                 case ArrowRight:
-                    world.tryMove(me, 0, 1);
+                    world.tryMove(me, Move.RIGHT);
                     return;
                 case Character:
                     Character ch = keyStroke.getCharacter();

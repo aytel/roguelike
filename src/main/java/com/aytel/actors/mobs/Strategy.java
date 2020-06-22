@@ -1,6 +1,6 @@
-package com.aytel.actors.strategies;
+package com.aytel.actors.mobs;
 
-import com.aytel.actors.Mob;
+import com.aytel.actors.mobs.Mob;
 import com.aytel.World;
 
 public abstract class Strategy {

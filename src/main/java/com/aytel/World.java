@@ -3,65 +3,52 @@ package com.aytel;
 import com.aytel.actors.*;
 import com.aytel.actors.items.Item;
 import com.aytel.actors.items.ItemBuilder;
-import com.aytel.actors.strategies.Aggressive;
-import com.aytel.actors.strategies.Dumb;
-import com.aytel.actors.strategies.Sneaky;
-import com.aytel.actors.strategies.Strategy;
+import com.aytel.actors.mobs.MobBuilder;
 import com.googlecode.lanterna.TextColor;
 import com.googlecode.lanterna.graphics.TextGraphics;
 import com.googlecode.lanterna.input.KeyStroke;
 import com.googlecode.lanterna.terminal.DefaultTerminalFactory;
 import com.googlecode.lanterna.terminal.Terminal;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
+import java.io.*;
+import java.util.*;
 
+import static com.aytel.actors.Move.*;
 import static java.lang.Math.abs;
 
 public class World {
+    private static final int PLAYER_HP = 10;
+    private static final int PLAYER_ATTACK = 2;
+    private static final int WALL_CHANCE = 8;
+    private static final int MOB_CHANCE = 15;
+    private static final int ITEM_CHANCE = 15;
+
     private int w, h;
     private Tile[][] map;
     private List<Actor> actors;
     private Item[][] items;
-    Player me;
+    private Player me;
+
+    static private Random random = new Random();
 
     private DefaultTerminalFactory defaultTerminalFactory;
     private Terminal terminal;
     private TextGraphics textGraphics;
 
-    private static final int PLAYER_HP = 10;
-    private static final int PLAYER_ATTACK = 2;
-    private static final int MOB_HP = 5;
-    private static final int MOB_ATTACK = 1;
-    private static final int WALL_CHANCE = 8;
-    private static final int MOB_CHANCE = 15;
-    private static final int ITEM_CHANCE = 15;
-
-    private World(int w, int h, Tile[][] map) throws IOException {
+    private World(int w, int h, Tile[][] map, Item[][] items, List<Actor> actors, Player me) {
         this.w = w;
         this.h = h;
         this.map = map;
-        this.actors = new ArrayList<>();
-
-        this.defaultTerminalFactory = new DefaultTerminalFactory();
-        this.terminal = defaultTerminalFactory.createTerminal();
-        terminal.enterPrivateMode();
-        terminal.clearScreen();
-        terminal.setCursorVisible(false);
-        this.textGraphics = terminal.newTextGraphics();
+        this.actors = actors;
+        this.items = items;
+        this.me = me;
     }
 
-    public static World generate(int w, int h) throws IOException {
-        List<Position> used = new ArrayList<>();
-        Random random = new Random();
-
+    public static World generate(int w, int h) {
         w += 2;
         h += 2;
 
-        Tile[][] map = new Tile[w][h];
+        Tile[][] map = new Tile[h][w];
         for (int i = 0; i < w; i++) {
             map[0][i] = map[h - 1][i] = Tile.WALL;
         }
@@ -76,90 +63,127 @@ public class World {
             }
         }
 
-        World world = new World(w, h, map);
+        boolean[][] itemsPlaces = new boolean[h][w];
 
-        world.items = new Item[w][h];
+        markPlaces(w, h, random, map, itemsPlaces, ITEM_CHANCE);
 
-        for (int i = 1; i < h - 1; i++) {
-            for (int j = 1; j < w - 1; j++) {
-                if (map[i][j] != Tile.EMPTY) {
-                    continue;
-                }
+        boolean[][] mobsPlaces = new boolean[h][w];
 
-                int checkItem = random.nextInt(ITEM_CHANCE);
-                if (checkItem == 0) {
-                    Item item = ItemBuilder.generate();
-                    world.items[i][j] = item;
-                }
-            }
-        }
+        markPlaces(w, h, random, map, mobsPlaces, MOB_CHANCE);
 
-        for (int i = 1; i < h - 1; i++) {
-            for (int j = 1; j < w - 1; j++) {
-                if (map[i][j] != Tile.EMPTY) {
-                    continue;
-                }
-
-                int checkMob = random.nextInt(MOB_CHANCE);
-                if (checkMob == 0) {
-                    Position position = new Position();
-                    position.x = j;
-                    position.y = i;
-                    used.add(position);
-
-                    Strategy strategy = null;
-
-                    int strategySwitch = random.nextInt(3);
-
-                    switch (strategySwitch) {
-                        case 0:
-                            strategy = new Dumb();
-                            break;
-                        case 1:
-                            strategy = new Aggressive();
-                            break;
-                        case 2:
-                            strategy = new Sneaky();
-                            break;
-                    }
-
-                    if (strategy == null) {
-                        assert(false);
-                    }
-
-                    world.actors.add(new Mob(MOB_HP, MOB_ATTACK, position.x, position.y, world, strategy));
-                    continue;
-                }
-            }
-        }
+        int myX, myY;
 
         while (true) {
-            Position position = new Position();
-            position.x = random.nextInt(w - 2) + 1;
-            position.y = random.nextInt(h - 2) + 1;
-            if (used.contains(position) || map[position.y][position.x] != Tile.EMPTY) {
+            myX = random.nextInt(w - 2) + 1;
+            myY = random.nextInt(h - 2) + 1;
+            if (map[myY][myX] != Tile.EMPTY || mobsPlaces[myY][myX]) {
                 continue;
             }
-            Player me = new Player(PLAYER_HP, PLAYER_ATTACK, position.x, position.y, world,
-                new Controller());
-            world.me = me;
-            world.actors.add(me);
             break;
         }
 
-        return world;
+        return generateFromPlaces(w, h, map, itemsPlaces, mobsPlaces, myY, myX);
+    }
+
+    public static World generateFromMap(File file) throws Exception {
+        Scanner scanner = new Scanner(file);
+        int w = scanner.nextInt();
+        int h = scanner.nextInt();
+        Tile[][] map = new Tile[h][w];
+        boolean[][] itemsPlaces = new boolean[h][w];
+        boolean[][] mobsPlaces = new boolean[h][w];
+        int myX = -1, myY = -1;
+
+        for (int i = 0; i < h; i++) {
+            String line = scanner.nextLine();
+            for (int j = 0; j < w; j++) {
+                map[i][j] = Tile.EMPTY;
+
+                switch (line.charAt(j)) {
+                    case ' ':
+                        break;
+                    case '@':
+                        if (myX != -1 || myY != -1) {
+                            throw new Exception("More than one player");
+                        }
+                        myX = j;
+                        myY = i;
+                        break;
+                    case 'i':
+                        itemsPlaces[i][j] = true;
+                        break;
+                    case 'M':
+                        mobsPlaces[i][j] = true;
+                        break;
+                    case 'X':
+                        map[i][j] = Tile.WALL;
+                        break;
+                    default:
+                        throw new Exception(String.format("Unknown tile at row %d, column %d", i, j));
+                }
+            }
+        }
+
+        if (myX == -1 || myY == -1) {
+            throw new Exception("No player");
+        }
+
+        return generateFromPlaces(w, h, map, itemsPlaces, mobsPlaces, myY, myX);
+    }
+
+    private static World generateFromPlaces(int w, int h, Tile[][] map, boolean[][] itemsPlaces, boolean[][] mobsPlaces, int myY, int myX) {
+        Item[][] items = new Item[h][w];
+        List<Actor> actors = new ArrayList<>();
+
+        for (int i = 0; i < h; i++) {
+            for (int j = 0; j < w; j++) {
+                if (itemsPlaces[i][j]) {
+                    items[i][j] = ItemBuilder.generate();
+                }
+                if (mobsPlaces[i][j]) {
+                    actors.add(MobBuilder.generate(i, j));
+                }
+            }
+        }
+
+        Player me = new Player(PLAYER_HP, PLAYER_ATTACK, myX, myY, new Controller());
+        actors.add(me);
+
+        return new World(w, h, map, items, actors, me);
+    }
+
+    private static void markPlaces(int w, int h, Random random, Tile[][] map, boolean[][] places, int chance) {
+        for (int i = 1; i < h - 1; i++) {
+            for (int j = 1; j < w - 1; j++) {
+                if (map[i][j] != Tile.EMPTY) {
+                    continue;
+                }
+
+                int checkItem = random.nextInt(chance);
+                if (checkItem == 0) {
+                    places[i][j] = true;
+                }
+            }
+        }
     }
 
     public void run() throws IOException {
+        this.defaultTerminalFactory = new DefaultTerminalFactory();
+        this.terminal = defaultTerminalFactory.createTerminal();
+        terminal.enterPrivateMode();
+        terminal.clearScreen();
+        terminal.setCursorVisible(false);
+        this.textGraphics = terminal.newTextGraphics();
+
         while (actors.contains(me) && actors.size() > 1) {
             List<Actor> toRemove = new ArrayList<>();
             for (Actor actor: actors) {
                 if (actor.getHp() <= 0) {
                     continue;
                 }
-                actor.beforeRender();
+                actor.beforeRender(this);
                 render(actor);
-                actor.act();
+                actor.act(this);
             }
             for (Actor actor: actors) {
                 if (actor.getHp() <= 0) {
@@ -251,7 +275,9 @@ public class World {
         terminal.close();
     }
 
-    public boolean tryMove(Actor actor, int dy, int dx) {
+    public boolean tryMove(Actor actor, Move move) {
+        int dx = move.dx;
+        int dy = move.dy;
         int nx = actor.getPosition().x + dx, ny = actor.getPosition().y + dy;
 
         if (nx < 0 || nx >= w || ny < 0 || ny >= w) {
@@ -298,6 +324,16 @@ public class World {
         result[1] = dy == 0 ? 0 : dy / abs(dy);
         result[2] = dx == 0 ? 0 : dx / abs(dx);
         return result;
+    }
+
+    public Move getMove(int dy, int dx) {
+        if (dy < 0) {
+            return UP;
+        }
+        if (dy > 0) {
+            return DOWN;
+        }
+        return dx > 0 ? RIGHT : LEFT;
     }
 
     public KeyStroke getInput() throws IOException {

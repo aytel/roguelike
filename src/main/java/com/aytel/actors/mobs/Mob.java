@@ -1,6 +1,6 @@
-package com.aytel.actors;
+package com.aytel.actors.mobs;
 
-import com.aytel.actors.strategies.Strategy;
+import com.aytel.actors.Actor;
 import com.aytel.World;
 import com.googlecode.lanterna.TextColor;
 
@@ -15,14 +15,14 @@ public class Mob extends Actor {
         this.strategy = strategy;
     }
 
-    public Mob(int hp, int attack, int x, int y, World world, Strategy strategy) {
-        super(hp, attack, x, y, world);
+    public Mob(int hp, int attack, int x, int y, Strategy strategy) {
+        super(hp, attack, x, y);
         this.strategy = strategy;
     }
 
     @Override
-    public void act() {
-        strategy.act(this, this.world);
+    public void act(World world) {
+        strategy.act(this, world);
     }
 
     @Override

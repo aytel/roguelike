@@ -13,16 +13,14 @@ public abstract class Actor extends WorldObject {
     protected int attack;
     protected int armor;
     private Position position;
-    protected final World world;
 
-    Actor(int hp, int attack, int x, int y, World world) {
+    protected Actor(int hp, int attack, int x, int y) {
         this.hp = hp;
         this.attack = attack;
         this.armor = 0;
         this.position = new Position();
         this.position.x = x;
         this.position.y = y;
-        this.world = world;
     }
 
     public int getArmor() {
@@ -62,9 +60,9 @@ public abstract class Actor extends WorldObject {
         a.hp -= max(0, getAttack() - a.getArmor());
     }
 
-    abstract public void act() throws IOException;
+    abstract public void act(World world) throws IOException;
 
-    public void beforeRender() {
+    public void beforeRender(World world) {
 
     }
 }
